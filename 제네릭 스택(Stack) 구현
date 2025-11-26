@@ -1,0 +1,53 @@
+import java.util.ArrayList;
+import java.util.EmptyStackException;
+
+// 제네릭(Generic)을 사용하여 모든 타입을 담을 수 있는 스택
+public class MyStack<T> {
+    private ArrayList<T> stack;
+
+    public MyStack() {
+        this.stack = new ArrayList<>();
+    }
+
+    public void push(T data) {
+        stack.add(data);
+    }
+
+    public T pop() {
+        if (isEmpty()) {
+            throw new EmptyStackException();
+        }
+        return stack.remove(stack.size() - 1);
+    }
+
+    public T peek() {
+        if (isEmpty()) {
+            throw new EmptyStackException();
+        }
+        return stack.get(stack.size() - 1);
+    }
+
+    public boolean isEmpty() {
+        return stack.isEmpty();
+    }
+
+    public void printStack() {
+        System.out.println("Current Stack: " + stack);
+    }
+
+    public static void main(String[] args) {
+        MyStack<String> myStack = new MyStack<>();
+        
+        System.out.println("=== 스택 테스트 시작 ===");
+        myStack.push("GitHub");
+        myStack.push("Portfolio");
+        myStack.push("Code");
+        
+        myStack.printStack();
+        
+        System.out.println("Pop: " + myStack.pop());
+        System.out.println("Peek: " + myStack.peek());
+        
+        myStack.printStack();
+    }
+}
