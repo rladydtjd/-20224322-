@@ -1,0 +1,46 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// XOR 연산을 이용한 간단한 암호화/복호화 함수
+void xor_cipher(const char *input_path, const char *output_path, const char *key) {
+    FILE *fin = fopen(input_path, "rb");
+    FILE *fout = fopen(output_path, "wb");
+    
+    if (fin == NULL || fout == NULL) {
+        printf("Error: 파일 열기에 실패했습니다.\n");
+        exit(1);
+    }
+
+    int key_len = strlen(key);
+    int ch;
+    int i = 0;
+
+    printf("Processing...\n");
+
+    // 한 바이트씩 읽어서 키와 XOR 연산 후 저장
+    while ((ch = fgetc(fin)) != EOF) {
+        // 원본 데이터(ch) ^ 키값(key) = 암호화된 데이터
+        // 암호화된 데이터 ^ 키값(key) = 원본 데이터 (복구)
+        fputc(ch ^ key[i % key_len], fout);
+        i++;
+    }
+
+    printf("Success! 결과가 '%s'에 저장되었습니다.\n", output_path);
+
+    fclose(fin);
+    fclose(fout);
+}
+
+int main(int argc, char *argv[]) {
+    // 사용법 안내: 프로그램명 원본파일 저장될파일 암호키
+    if (argc != 4) {
+        printf("Usage: %s <input_file> <output_file> <key>\n", argv[0]);
+        printf("Example: %s data.txt encrypted.dat mySecretKey\n", argv[0]);
+        return 1;
+    }
+
+    xor_cipher(argv[1], argv[2], argv[3]);
+
+    return 0;
+}
