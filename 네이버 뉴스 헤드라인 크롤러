@@ -1,0 +1,33 @@
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+
+def get_news_headlines():
+    # 네이버 뉴스 IT/과학 분야 메인 페이지
+    url = "https://news.naver.com/main/main.naver?mode=LSD&mid=shm&sid1=105"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status() # 에러 발생 시 예외 처리
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        # 뉴스 헤드라인 클래스 (네이버 구조에 따라 변경 가능)
+        headlines = soup.select(".sh_text_headline")
+        
+        print(f"=== IT 뉴스 헤드라인 ({datetime.now().strftime('%Y-%m-%d %H:%M')}) ===")
+        
+        for idx, title in enumerate(headlines, 1):
+            print(f"{idx}. {title.get_text().strip()}")
+            print(f"   Link: {title['href']}")
+            print("-" * 50)
+            
+    except Exception as e:
+        print(f"오류가 발생했습니다: {e}")
+
+if __name__ == "__main__":
+    get_news_headlines()
