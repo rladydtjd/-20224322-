@@ -1,0 +1,32 @@
+const axios = require('axios');
+
+const API_KEY = 'YOUR_API_KEY_HERE'; // 발급받은 API Key 입력
+const CITY = 'Seoul';
+const URL = `https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${API_KEY}&units=metric&lang=kr`;
+
+async function getLocalWeather() {
+    try {
+        if (API_KEY === 'YOUR_API_KEY_HERE') {
+            console.log("⚠️ API_KEY를 실제 키로 변경해야 정상 작동합니다.");
+            return;
+        }
+
+        const response = await axios.get(URL);
+        const data = response.data;
+
+        const weatherDescription = data.weather[0].description;
+        const temperature = data.main.temp;
+        const feelsLike = data.main.feels_like;
+        const humidity = data.main.humidity;
+
+        console.log(`=== 📍 ${CITY} 현재 날씨 결과 ===`);
+        console.log(`• 상태: ${weatherDescription}`);
+        console.log(`• 기온: ${temperature}°C (체감온도: ${feelsLike}°C)`);
+        console.log(`• 습도: ${humidity}%`);
+        
+    } catch (error) {
+        console.error("날씨 데이터를 가져오는 중 오류가 발생했습니다:", error.message);
+    }
+}
+
+getLocalWeather();
