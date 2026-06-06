@@ -1,0 +1,10 @@
+import java.util.UUID;
+
+public class PasswordGenerator {
+    public static void main(String[] args) {
+        // 하이픈 제거 후 앞 10자리만 잘라서 임시 비밀번호 생성
+        String temporaryPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        
+        System.out.println("생성된 임시 비밀번호: " + temporaryPassword);
+    }
+}
