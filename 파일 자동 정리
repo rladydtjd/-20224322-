@@ -1,0 +1,40 @@
+import os
+import shutil
+from pathlib import Path
+
+# 정리할 폴더 경로 (사용자 환경에 맞게 변경)
+TARGET_DIR = Path.home() / "Downloads"
+
+# 확장자별 폴더 매핑
+EXTENSION_MAP = {
+    ".jpg": "Images", ".jpeg": "Images", ".png": "Images", ".gif": "Images",
+    ".pdf": "Documents", ".docx": "Documents", ".xlsx": "Documents", ".txt": "Documents",
+    ".zip": "Archives", ".rar": "Archives", ".7z": "Archives",
+    ".mp4": "Videos", ".mkv": "Videos"
+}
+
+def organize_folder():
+    if not TARGET_DIR.exists():
+        print("지정한 경로가 존재하지 않습니다.")
+        return
+
+    for file_path in TARGET_DIR.iterdir():
+        # 파일이고, 숨겨진 파일이 아닌 경우만 처리
+        if file_path.is_file() and not file_path.name.startswith('.'):
+            ext = file_path.suffix.lower()
+            
+            if ext in EXTENSION_MAP:
+                folder_name = EXTENSION_MAP[ext]
+                destination_dir = TARGET_DIR / folder_name
+                
+                # 폴더가 없으면 생성
+                destination_dir.mkdir(exist_ok=True)
+                
+                # 파일 이동
+                shutil.move(str(file_path), str(destination_dir / file_path.name))
+                print(f"이동 완료: {file_path.name} -> {folder_name}/")
+
+if __name__ == "__main__":
+    print(f"{TARGET_DIR} 폴더 정리를 시작합니다...")
+    organize_folder()
+    print("정리가 완료되었습니다.")
