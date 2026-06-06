@@ -1,0 +1,12 @@
+function calculateDDay(targetDate) {
+    const today = new Date();
+    const target = new Date(targetDate);
+    
+    const difference = target - today;
+    const daysLeft = Math.ceil(difference / (1000 * 60 * 60 * 24));
+    
+    return daysLeft > 0 ? `D-${daysLeft}` : daysLeft === 0 ? "D-Day 🎉" : `D+${Math.abs(daysLeft)}`;
+}
+
+// 테스트 (원하는 날짜를 넣으세요)
+console.log(calculateDDay("2026-12-31"));
