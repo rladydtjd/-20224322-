@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>지뢰찾기</title>
+<style>
+:root{--bg:#eef2f8;--card:#fff;--blue:#2563eb;--text:#172033;--muted:#64748b}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;padding:22px;background:linear-gradient(135deg,#eef2f8,#e4eaf4);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text)}
+.game{width:min(100%,1050px);margin:auto;background:var(--card);border:1px solid #dbe3ef;border-radius:22px;padding:clamp(14px,3vw,26px);box-shadow:0 18px 50px #24324a18}
+header{text-align:center;margin-bottom:20px}h1{margin:0;font-size:clamp(27px,5vw,38px);letter-spacing:-1px}header p{margin:7px 0 0;color:var(--muted)}
+.controls{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;margin:18px 0}
+select,.counter{background:#f1f5f9;border:1px solid #dbe3ef;border-radius:11px;padding:10px 13px;font:inherit;font-weight:700;color:var(--text)}
+button.new{border:0;border-radius:11px;padding:11px 17px;background:var(--blue);color:white;font-weight:700;font-size:15px;cursor:pointer}
+button.new:hover{background:#1d4ed8}
+.counter{font-variant-numeric:tabular-nums}
+
+/* 배경음악 컨트롤 영역 스타일 */
+.audio-controls{display:inline-flex;align-items:center;gap:8px;background:#f1f5f9;border:1px solid #dbe3ef;border-radius:11px;padding:6px 12px}
+.bgm-btn{border:0;border-radius:8px;padding:6px 11px;background:#e2e8f0;color:var(--text);font:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+.bgm-btn:hover{background:#cbd5e1}
+.bgm-btn.playing{background:#dbeafe;color:var(--blue)}
+.vol-wrap{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700}
+input[type="range"]#volume{width:80px;accent-color:var(--blue);cursor:pointer}
+
+.board-wrap{width:100%;overflow:auto;padding:7px 2px 12px}
+.board{display:grid;gap:3px;width:max-content;margin:0 auto;padding:7px;background:#dbe4ef;border-radius:12px;user-select:none}
+.cell{width:clamp(20px,2.65vw,30px);height:clamp(20px,2.65vw,30px);border:0;border-radius:5px;background:linear-gradient(145deg,#fff,#e8edf4);box-shadow:inset 0 0 0 1px #c2cedd,0 1px 2px #64748b20;color:#334155;font-size:clamp(10px,1.5vw,17px);font-weight:800;cursor:pointer;display:grid;place-items:center;padding:0}
+.cell:not(.revealed):hover{background:#f8fbff}
+.cell.revealed{background:#f8fafc;box-shadow:inset 0 0 0 1px #cbd5e1;cursor:default}
+.cell.flagged{background:#dbeafe}.cell.mine{background:#fee2e2}.cell.exploded{background:#ef4444;color:white}
+.n1{color:#2563eb}.n2{color:#16a34a}.n3{color:#dc2626}.n4{color:#7c3aed}.n5{color:#b45309}.n6{color:#0891b2}.n7{color:#334155}.n8{color:#64748b}
+.help{text-align:center;color:var(--muted);font-size:13px;margin:12px 0 0}
+.overlay{position:fixed;inset:0;background:#0f172a70;display:none;place-items:center;padding:20px;z-index:5}.overlay.show{display:grid}
+.dialog{width:min(100%,340px);background:white;border-radius:20px;padding:28px;text-align:center;box-shadow:0 25px 70px #0003}.emoji{font-size:46px}.dialog h2{margin:8px 0;font-size:27px}.dialog p{color:var(--muted);margin:0 0 20px}.dialog button{width:100%}
+@media(max-width:520px){body{padding:9px}.game{padding:12px}.controls{gap:7px}.counter,select{padding:9px 10px;font-size:13px}button.new{padding:10px 12px;font-size:13px}.audio-controls{padding:5px 9px}.bgm-btn{font-size:12px;padding:5px 8px}input[type="range"]#volume{width:65px}.board{gap:2px;padding:5px}.cell{width:clamp(18px,5.4vw,27px);height:clamp(18px,5.4vw,27px);font-size:11px}}
+</style>
+</head>
+<body>
+<main class="game">
+<header><h1>🚩 지뢰찾기</h1><p>난이도를 선택하고 지뢰를 피해 모든 안전한 칸을 열어보세요!</p></header>
+<div class="controls">
+  <label for="difficulty">난이도</label>
+  <select id="difficulty">
+    <option value="easy">쉬움 (9×9 · 10개)</option>
+    <option value="medium">중간 (16×16 · 40개)</option>
+    <option value="hard">어려움 (30×16 · 99개)</option>
+  </select>
+  <div class="counter">🚩 깃발: <span id="flagCount">0</span> / <span id="mineTotal">10</span></div>
+  <button class="new" id="restart">↻ 새 게임</button>
+  <div class="counter">⏱ 시간 <span id="time">0</span>초</div>
+  <!-- 배경음악 재생/일시정지 및 음량 조절 UI -->
+  <div class="audio-controls">
+    <button type="button" class="bgm-btn" id="bgmToggle">▶️ BGM 재생</button>
+    <label class="vol-wrap" for="volume">
+      <span id="volIcon">🔊</span>
+      <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5" aria-label="배경음악 음량 조절">
+    </label>
+  </div>
+</div>
+
+<!-- 같은 경로의 bgm.mp3 연결 및 loop 속성으로 무한 반복 재생 설정 -->
+<audio id="bgm" src="bgm.mp3" loop preload="auto"></audio>
+
+<div class="board-wrap"><div class="board" id="board" role="grid" aria-label="지뢰찾기 보드"></div></div>
+<p class="help">왼쪽 클릭: 칸 열기 · 오른쪽 클릭: 깃발 표시/해제 · 보드가 크면 좌우로 스크롤하세요.</p>
+</main>
+<div class="overlay" id="overlay" role="dialog" aria-modal="true">
+<div class="dialog"><div class="emoji" id="resultEmoji">💥</div><h2 id="resultTitle">게임 오버!</h2><p id="resultText">지뢰를 밟았습니다.</p><button class="new" id="playAgain">새 게임</button></div>
+</div>
+<script>
+(() => {
+  const LEVELS = {
+    easy:   {rows:9, cols:9, mines:10},
+    medium: {rows:16,cols:16,mines:40},
+    hard:   {rows:16,cols:30,mines:99}
+  };
+  const boardEl=document.getElementById('board');
+  const difficultyEl=document.getElementById('difficulty');
+  const flagCountEl=document.getElementById('flagCount');
+  const mineTotalEl=document.getElementById('mineTotal');
+  const timeEl=document.getElementById('time');
+  const overlay=document.getElementById('overlay');
+  const resultEmoji=document.getElementById('resultEmoji');
+  const resultTitle=document.getElementById('resultTitle');
+  const resultText=document.getElementById('resultText');
+
+  // 배경음악 관련 DOM 요소
+  const bgm=document.getElementById('bgm');
+  const bgmToggle=document.getElementById('bgmToggle');
+  const volumeEl=document.getElementById('volume');
+  const volIcon=document.getElementById('volIcon');
+
+  let rows=9,cols=9,mineTotal=10,cells=[],ended=false,flags=0,revealedSafe=0;
+  let timer=null,startTime=null;
+  let userPaused=false; // 사용자가 직접 일시정지를 눌렀는지 여부
+
+  // 초기 음량 설정 (50%)
+  bgm.volume=parseFloat(volumeEl.value);
+
+  function updateBgmUI(){
+    if(bgm.paused){
+      bgmToggle.textContent='▶️ BGM 재생';
+      bgmToggle.classList.remove('playing');
+    }else{
+      bgmToggle.textContent='⏸️ BGM 일시정지';
+      bgmToggle.classList.add('playing');
+    }
+  }
+
+  function playBgm(){
+    const playPromise=bgm.play();
+    if(playPromise!==undefined){
+      playPromise.then(()=>{
+        updateBgmUI();
+      }).catch(()=>{
+        // 브라우저 자동 재생 정책으로 차단될 경우 예외 처리
+        updateBgmUI();
+      });
+    }
+  }
+
+  // 재생 / 일시정지 버튼 이벤트
+  bgmToggle.addEventListener('click',()=>{
+    if(bgm.paused){
+      userPaused=false;
+      playBgm();
+    }else{
+      userPaused=true;
+      bgm.pause();
+      updateBgmUI();
+    }
+  });
+
+  // 음량 슬라이더 조절 이벤트
+  volumeEl.addEventListener('input',()=>{
+    const vol=parseFloat(volumeEl.value);
+    bgm.volume=vol;
+    volIcon.textContent=vol===0?'🔇':vol<0.5?'🔉':'🔊';
+  });
+
+  function neighbors(index){
+    const r=Math.floor(index/cols),c=index%cols,list=[];
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      if(!dr&&!dc)continue;
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<rows&&nc>=0&&nc<cols)list.push(nr*cols+nc);
+    }
+    return list;
+  }
+  function startTimer(){
+    if(timer!==null||startTime!==null)return;
+    startTime=Date.now();
+    timer=setInterval(()=>{timeEl.textContent=Math.floor((Date.now()-startTime)/1000);},250);
+  }
+  function stopTimer(){
+    if(timer!==null){clearInterval(timer);timer=null;}
+    if(startTime!==null){timeEl.textContent=Math.floor((Date.now()-startTime)/1000);startTime=null;}
+  }
+  function updateFlagCounter(){
+    flagCountEl.textContent=flags;
+    mineTotalEl.textContent=mineTotal;
+  }
+  function newGame(){
+    stopTimer();timeEl.textContent='0';startTime=null;
+    const level=LEVELS[difficultyEl.value];
+    rows=level.rows;cols=level.cols;mineTotal=level.mines;
+    flags=0;revealedSafe=0;ended=false;
+    overlay.classList.remove('show');updateFlagCounter();
+    cells=Array.from({length:rows*cols},()=>({mine:false,number:0,revealed:false,flag:false,exploded:false}));
+    let placed=0;
+    while(placed<mineTotal){const i=Math.floor(Math.random()*cells.length);if(!cells[i].mine){cells[i].mine=true;placed++;}}
+    cells.forEach((cell,i)=>{if(!cell.mine)cell.number=neighbors(i).filter(n=>cells[n].mine).length;});
+    boardEl.style.gridTemplateColumns=`repeat(${cols}, max-content)`;
+    render();
+  }
+  function render(){
+    boardEl.innerHTML='';
+    cells.forEach((cell,i)=>{
+      const btn=document.createElement('button');btn.className='cell';btn.type='button';btn.setAttribute('role','gridcell');
+      btn.setAttribute('aria-label',`행 ${Math.floor(i/cols)+1}, 열 ${i%cols+1}`);
+      if(cell.revealed){btn.classList.add('revealed');if(cell.mine){btn.textContent='💣';btn.classList.add('mine');}else if(cell.number){btn.textContent=cell.number;btn.classList.add('n'+cell.number);}}
+      else if(cell.flag){btn.textContent='🚩';btn.classList.add('flagged');}
+      if(cell.exploded)btn.classList.add('exploded');
+      btn.addEventListener('click',()=>reveal(i));
+      btn.addEventListener('contextmenu',e=>{e.preventDefault();toggleFlag(i);});
+      boardEl.appendChild(btn);
+    });
+  }
+  function reveal(i){
+    if(ended||cells[i].revealed||cells[i].flag)return;
+    startTimer();
+    // 사용자가 직접 일시정지하지 않았다면 게임 시작(첫 클릭)과 동시에 BGM 재생
+    if(bgm.paused && !userPaused){
+      playBgm();
+    }
+    if(cells[i].mine){cells[i].revealed=true;cells[i].exploded=true;finish(false);return;}
+    floodReveal(i);render();
+    if(revealedSafe===rows*cols-mineTotal)finish(true);
+  }
+  function floodReveal(start){
+    const stack=[start];
+    while(stack.length){
+      const i=stack.pop(),cell=cells[i];
+      if(cell.revealed||cell.flag||cell.mine)continue;
+      cell.revealed=true;revealedSafe++;
+      if(cell.number===0)neighbors(i).forEach(n=>{if(!cells[n].revealed&&!cells[n].mine&&!cells[n].flag)stack.push(n);});
+    }
+  }
+  function toggleFlag(i){
+    if(ended||cells[i].revealed)return;
+    if(!cells[i].flag && flags>=mineTotal)return;
+    cells[i].flag=!cells[i].flag;
+    flags+=cells[i].flag?1:-1;
+    updateFlagCounter();
+    render();
+  }
+  function finish(win){
+    ended=true;stopTimer();
+    cells.forEach(cell=>{if(cell.mine)cell.revealed=true;});
+    render();resultEmoji.textContent=win?'🎉':'💥';
+    resultTitle.textContent=win?'승리!':'게임 오버!';
+    resultText.textContent=win?'모든 안전한 칸을 열었습니다!':'지뢰를 밟았습니다.';
+    overlay.classList.add('show');
+  }
+  document.getElementById('restart').addEventListener('click',newGame);
+  document.getElementById('playAgain').addEventListener('click',newGame);
+  difficultyEl.addEventListener('change',newGame);
+  newGame();
+})();
+</script>
+</body>
+</html>
