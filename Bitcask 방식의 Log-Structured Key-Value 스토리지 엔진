@@ -1,0 +1,72 @@
+import json
+import os
+from typing import Any, Dict, Optional, Tuple
+
+class BitcaskKVStore:
+    def __init__(self, db_path: str = "storage.log") -> None:
+        self.db_path = db_path
+        self.keydir: Dict[str, Tuple[int, int]] = {}  # key -> (byte_offset, byte_length)
+        self._recover_index()
+
+    def _recover_index(self) -> None:
+        if not os.path.exists(self.db_path):
+            return
+        with open(self.db_path, "rb") as f:
+            while True:
+                offset = f.tell()
+                line = f.readline()
+                if not line:
+                    break
+                record = json.loads(line.decode("utf-8"))
+                if record["tombstone"]:
+                    self.keydir.pop(record["key"], None)
+                else:
+                    self.keydir[record["key"]] = (offset, len(line))
+
+    def put(self, key: str, value: Any) -> None:
+        payload = json.dumps({"key": key, "value": value, "tombstone": False}).encode("utf-8") + b"\n"
+        with open(self.db_path, "ab") as f:
+            offset = f.tell()
+            f.write(payload)
+        self.keydir[key] = (offset, len(payload))
+
+    def get(self, key: str) -> Optional[Any]:
+        meta = self.keydir.get(key)
+        if not meta:
+            return None
+        offset, length = meta
+        with open(self.db_path, "rb") as f:
+            f.seek(offset)
+            record = json.loads(f.read(length).decode("utf-8"))
+        return record["value"]
+
+    def delete(self, key: str) -> None:
+        if key not in self.keydir:
+            return
+        payload = json.dumps({"key": key, "value": None, "tombstone": True}).encode("utf-8") + b"\n"
+        with open(self.db_path, "ab") as f:
+            f.write(payload)
+        del self.keydir[key]
+
+    def compact(self) -> None:
+        """중복 갱신 및 삭제된 과거 로그를 정리하여 디스크 용량 압축"""
+        tmp_path = self.db_path + ".tmp"
+        new_keydir: Dict[str, Tuple[int, int]] = {}
+        with open(tmp_path, "wb") as out_f:
+            for key in list(self.keydir.keys()):
+                val = self.get(key)
+                payload = json.dumps({"key": key, "value": val, "tombstone": False}).encode("utf-8") + b"\n"
+                offset = out_f.tell()
+                out_f.write(payload)
+                new_keydir[key] = (offset, len(payload))
+        os.replace(tmp_path, self.db_path)
+        self.keydir = new_keydir
+
+if __name__ == "__main__":
+    kv = BitcaskKVStore("demo_kv.log")
+    kv.put("user:1", {"name": "Kim", "role": "user"})
+    kv.put("user:1", {"name": "Kim", "role": "admin"})
+    kv.put("temp", 999)
+    kv.delete("temp")
+    kv.compact()
+    print("조회:", kv.get("user:1"), "| 삭제된 키:", kv.get("temp"))
