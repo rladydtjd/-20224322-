@@ -1,0 +1,39 @@
+import threading
+import time
+from dataclasses import dataclass
+
+@dataclass
+class RateLimitResult:
+    allowed: bool
+    remaining_tokens: float
+    retry_after: float
+
+class TokenBucketLimiter:
+    def __init__(self, capacity: int, refill_rate: float) -> None:
+        self.capacity = float(capacity)
+        self.refill_rate = refill_rate  # 초당 충전되는 토큰 수
+        self.tokens = float(capacity)
+        self.last_refill = time.monotonic()
+        self._lock = threading.Lock()
+
+    def _refill(self) -> None:
+        now = time.monotonic()
+        elapsed = now - self.last_refill
+        self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+        self.last_refill = now
+
+    def consume(self, tokens: int = 1) -> RateLimitResult:
+        with self._lock:
+            self._refill()
+            if self.tokens >= tokens:
+                self.tokens -= tokens
+                return RateLimitResult(True, round(self.tokens, 2), 0.0)
+            wait_time = (tokens - self.tokens) / self.refill_rate
+            return RateLimitResult(False, round(self.tokens, 2), round(wait_time, 3))
+
+if __name__ == "__main__":
+    limiter = TokenBucketLimiter(capacity=5, refill_rate=2.0)
+    for i in range(8):
+        res = limiter.consume()
+        print(f"요청 {i + 1}: 허용={res.allowed}, 남은토큰={res.remaining_tokens}, 대기={res.retry_after}s")
+        time.sleep(0.2)
