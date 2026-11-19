@@ -1,0 +1,66 @@
+from typing import Dict, Generic, Optional, TypeVar
+
+K = TypeVar("K")
+V = TypeVar("V")
+
+class _Node(Generic[K, V]):
+    def __init__(self, key: Optional[K] = None, val: Optional[V] = None) -> None:
+        self.key = key
+        self.val = val
+        self.prev: Optional[_Node[K, V]] = None
+        self.next: Optional[_Node[K, V]] = None
+
+class LRUCache(Generic[K, V]):
+    def __init__(self, capacity: int) -> None:
+        if capacity <= 0:
+            raise ValueError("capacity는 1 이상이어야 합니다.")
+        self.capacity = capacity
+        self.cache: Dict[K, _Node[K, V]] = {}
+        self.head: _Node[K, V] = _Node()
+        self.tail: _Node[K, V] = _Node()
+        self.head.next = self.tail
+        self.tail.prev = self.head
+
+    def _remove(self, node: _Node[K, V]) -> None:
+        assert node.prev and node.next
+        node.prev.next = node.next
+        node.next.prev = node.prev
+
+    def _add_to_front(self, node: _Node[K, V]) -> None:
+        assert self.head.next
+        node.prev = self.head
+        node.next = self.head.next
+        self.head.next.prev = node
+        self.head.next = node
+
+    def get(self, key: K) -> Optional[V]:
+        node = self.cache.get(key)
+        if not node:
+            return None
+        self._remove(node)
+        self._add_to_front(node)
+        return node.val
+
+    def put(self, key: K, val: V) -> None:
+        if key in self.cache:
+            node = self.cache[key]
+            node.val = val
+            self._remove(node)
+            self._add_to_front(node)
+            return
+        if len(self.cache) >= self.capacity:
+            assert self.tail.prev and self.tail.prev.key is not None
+            lru = self.tail.prev
+            self._remove(lru)
+            del self.cache[lru.key]
+        new_node = _Node(key, val)
+        self.cache[key] = new_node
+        self._add_to_front(new_node)
+
+if __name__ == "__main__":
+    cache = LRUCache[str, int](capacity=2)
+    cache.put("A", 10)
+    cache.put("B", 20)
+    print("A 조회:", cache.get("A"))  # A가 최신으로 이동
+    cache.put("C", 30)                # 가장 오래된 B 제거
+    print("B 조회:", cache.get("B"))  # None 출력
